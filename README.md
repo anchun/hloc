@@ -25,9 +25,10 @@ Build 3D maps with Structure-from-Motion and localize any Internet image right f
 `hloc` requires Python >=3.7 and PyTorch >=1.1. Installing the package locally pulls the other dependencies:
 
 ```bash
-git clone --recursive https://github.com/cvg/Hierarchical-Localization/
-cd Hierarchical-Localization/
-python -m pip install -e .
+git clone --recursive https://github.com/anchun/hloc/
+cd hloc
+pip install third_party/lightglue
+pip install -e .
 ```
 
 All dependencies are listed in `requirements.txt`. **Starting with `hloc-v1.3`, installing COLMAP is not required anymore.** This repository includes external local features as git submodules – don't forget to pull submodules with `git submodule update --init --recursive`.
