@@ -175,9 +175,12 @@ class ImageDataset(torch.utils.data.Dataset):
         "interpolation": "cv2_area",  # pil_linear is more accurate but slower
     }
 
-    def __init__(self, root, conf, paths=None):
+    def __init__(self, root, masks_root, conf, paths=None):
         self.conf = conf = SimpleNamespace(**{**self.default_conf, **conf})
         self.root = root
+        self.masks_root = masks_root
+        self.names = []
+        self.mask_names = []
 
         if paths is None:
             paths = []
@@ -199,6 +202,13 @@ class ImageDataset(torch.utils.data.Dataset):
             for name in self.names:
                 if not (root / name).exists():
                     raise ValueError(f"Image {name} does not exists in root: {root}.")
+                if self.masks_root:
+                    mask_name = Path(name).with_suffix(".png")
+                    self.mask_names.append(mask_name.as_posix())
+                    if not (self.masks_root / mask_name).exists():
+                        raise ValueError(
+                            f"Mask {mask_name} does not exists in masks root: {self.masks_root}."
+                        )
 
     def __getitem__(self, idx):
         name = self.names[idx]
@@ -223,6 +233,10 @@ class ImageDataset(torch.utils.data.Dataset):
             "image": image,
             "original_size": np.array(size),
         }
+        if self.masks_root:
+            mask = read_image(self.masks_root / self.mask_names[idx], grayscale=True)
+            mask = mask > 128
+            data["mask"] = mask
         return data
 
     def __len__(self):
@@ -237,13 +251,14 @@ def main(
     as_half: bool = True,
     image_list: Optional[Union[Path, List[str]]] = None,
     feature_path: Optional[Path] = None,
+    masks_dir: Optional[Path] = None,
     overwrite: bool = False,
 ) -> Path:
     logger.info(
         "Extracting local features with configuration:" f"\n{pprint.pformat(conf)}"
     )
 
-    dataset = ImageDataset(image_dir, conf["preprocessing"], image_list)
+    dataset = ImageDataset(image_dir, masks_dir, conf["preprocessing"], image_list)
     if feature_path is None:
         feature_path = Path(export_dir, conf["output"] + ".h5")
     feature_path.parent.mkdir(exist_ok=True, parents=True)
@@ -276,6 +291,13 @@ def main(
                 pred["scales"] *= scales.mean()
             # add keypoint uncertainties scaled to the original resolution
             uncertainty = getattr(model, "detection_noise", 1) * scales.mean()
+            
+            if "mask" in data:
+                keypoints = np.round(pred["keypoints"]).astype(int)
+                valid_mask = data["mask"][0][keypoints[:, 1],keypoints[:, 0]]
+                pred["keypoints"] = pred["keypoints"][valid_mask]
+                pred["keypoint_scores"] = pred["keypoint_scores"][valid_mask]
+                pred["descriptors"] = pred["descriptors"][:,valid_mask]
 
         if as_half:
             for k in pred:
