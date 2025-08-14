@@ -204,11 +204,15 @@ class ImageDataset(torch.utils.data.Dataset):
                     raise ValueError(f"Image {name} does not exists in root: {root}.")
                 if self.masks_root:
                     mask_name = Path(name).with_suffix(".png")
-                    self.mask_names.append(mask_name.as_posix())
+                    if not (self.masks_root / mask_name).exists():
+                        mask_name = Path(name).with_suffix(".jpg")
+                    if not (self.masks_root / mask_name).exists():
+                        mask_name = Path(name).with_suffix(".jpeg")
                     if not (self.masks_root / mask_name).exists():
                         raise ValueError(
                             f"Mask {mask_name} does not exists in masks root: {self.masks_root}."
                         )
+                    self.mask_names.append(mask_name.as_posix())
 
     def __getitem__(self, idx):
         name = self.names[idx]
