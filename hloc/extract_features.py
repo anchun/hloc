@@ -269,7 +269,14 @@ def main(
     skip_names = set(
         list_h5_names(feature_path) if feature_path.exists() and not overwrite else ()
     )
-    dataset.names = [n for n in dataset.names if n not in skip_names]
+    if dataset.mask_names:
+        filtered = [(n, m) for n, m in zip(dataset.names, dataset.mask_names) if n not in skip_names]
+        if filtered:
+            dataset.names, dataset.mask_names = map(list, zip(*filtered))
+        else:
+            dataset.names, dataset.mask_names = [], []
+    else:
+        dataset.names = [n for n in dataset.names if n not in skip_names]
     if len(dataset.names) == 0:
         logger.info("Skipping the extraction.")
         return feature_path

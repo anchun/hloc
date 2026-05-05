@@ -248,7 +248,11 @@ def match_from_paths(
             k: v if k.startswith("image") else v.to(device, non_blocking=True)
             for k, v in data.items()
         }
-        pred = model(data)
+        if device == "cuda":
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                pred = model(data)
+        else:
+            pred = model(data)
         pair = names_to_pair(*pairs[idx])
         writer_queue.put((pair, pred))
     writer_queue.join()
