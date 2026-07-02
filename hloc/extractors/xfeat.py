@@ -1,3 +1,6 @@
+import glob
+import os
+
 import torch
 
 from hloc import logger
@@ -13,12 +16,32 @@ class XFeat(BaseModel):
     required_inputs = ["image"]
 
     def _init(self, conf):
-        self.net = torch.hub.load(
-            "verlab/accelerated_features",
-            "XFeat",
-            pretrained=True,
-            top_k=self.conf["max_keypoints"],
+        repo = "verlab/accelerated_features"
+        # Reuse the local torch.hub cache if present to avoid contacting GitHub.
+        # torch caches github repos under <hub_dir>/<owner>_<repo>_<ref>.
+        cached_dirs = sorted(
+            d
+            for d in glob.glob(
+                os.path.join(torch.hub.get_dir(), "verlab_accelerated_features_*")
+            )
+            if os.path.isdir(d)
         )
+        if cached_dirs:
+            logger.info(f"Loading XFeat from local torch.hub cache: {cached_dirs[0]}")
+            self.net = torch.hub.load(
+                cached_dirs[0],
+                "XFeat",
+                source="local",
+                pretrained=True,
+                top_k=self.conf["max_keypoints"],
+            )
+        else:
+            self.net = torch.hub.load(
+                repo,
+                "XFeat",
+                pretrained=True,
+                top_k=self.conf["max_keypoints"],
+            )
         logger.info("Load XFeat(sparse) model done.")
 
     def _forward(self, data):
